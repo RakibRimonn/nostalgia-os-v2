@@ -8,7 +8,7 @@ LIVE="${WORK_DIR}/iso"
 rm -rf "${WORK_DIR}"
 mkdir -p "${ROOTFS}" "${LIVE}/live" "${LIVE}/boot/grub"
 
-echo "[1/8] Bootstrapping Core Linux Architecture (Debian Bookworm x86_64)..."
+echo "[1/8] Bootstrapping Base Debian 12 (amd64)..."
 debootstrap --arch=amd64 bookworm "${ROOTFS}" http://deb.debian.org/debian/
 
 mount --bind /dev "${ROOTFS}/dev"
@@ -21,7 +21,6 @@ if [ -f "wallpaper.png" ]; then
     cp wallpaper.png "${ROOTFS}/usr/share/backgrounds/nostalgia/sunset.png"
     echo "Custom wallpaper.png copied successfully!"
 else
-    # High-Definition Fallback generator if image is not uploaded yet
     python3 - << 'PYEOF'
 import os
 from PIL import Image, ImageDraw
@@ -41,16 +40,23 @@ img.save(os.path.join(out_dir, "sunset.png"), "PNG")
 PYEOF
 fi
 
-echo "[3/8] Installing Desktop Environment, Glass Compositor & 250+ Software..."
+echo "[3/8] Configuring Repositories & Installing Desktop Suite..."
 chroot "${ROOTFS}" /bin/bash << 'EOF'
 export DEBIAN_FRONTEND=noninteractive
 
+# Add Complete Debian Repositories (main, contrib, non-free, non-free-firmware)
+cat << 'SOEF' > /etc/apt/sources.list
+deb http://deb.debian.org/debian bookworm main contrib non-free non-free-firmware
+deb http://deb.debian.org/debian-security bookworm-security main contrib non-free non-free-firmware
+deb http://deb.debian.org/debian bookworm-updates main contrib non-free non-free-firmware
+SOEF
+
 apt-get update
 apt-get install -y --no-install-recommends \
-    linux-image-amd64 live-boot systemd-sysv \
-    xorg xserver-xorg-input-all xfce4-session xfwm4 xfce4-panel xfdesktop4 \
+    linux-image-amd64 live-boot systemd-sysv sudo \
+    xorg xserver-xorg-input-all xserver-xorg-input-libinput \
+    xfce4-session xfwm4 xfce4-panel xfdesktop4 \
     thunar plank kitty firefox-esr picom \
-    virtualbox-guest-utils virtualbox-guest-x11 \
     gir1.2-webkit2-4.1 python3-gi gir1.2-gtk-3.0 python3-psutil \
     build-essential gcc g++ make cmake git automake autoconf pkg-config \
     python3-full python3-pip gdb patch flex bison \
@@ -60,10 +66,10 @@ apt-get install -y --no-install-recommends \
     vlc viewnior ffmpeg zip unzip p7zip-full tar gzip bzip2 xz-utils zstd rsync tree ranger \
     fonts-inter fonts-noto-core fonts-beng fonts-noto-ui-core \
     papirus-icon-theme breeze-cursor-theme \
-    sudo network-manager pipewire pipewire-pulse wireplumber \
+    network-manager pipewire pipewire-pulse wireplumber \
     lightdm lightdm-gtk-greeter
 
-# 1. Developer Identity Configuration
+# 1. Developer Official Identity
 cat << 'OEF' > /etc/os-release
 NAME="NOSTALGIA OS"
 PRETTY_NAME="NOSTALGIA OS 3.0 (Quantum Edition)"
@@ -114,7 +120,7 @@ shadow-radius = 18;
 shadow-opacity = 0.35;
 PCONF
 
-# 4. Built-in Local AI Engine & Chatbot (Nostalgia AI / Nova)
+# 4. Built-in Local AI Engine & Chatbot (Nostalgia AI)
 cat << 'AI_APP' > /usr/local/bin/nostalgia-ai
 #!/usr/bin/env python3
 import sys, os, psutil
@@ -194,7 +200,7 @@ AI_APP
 
 chmod +x /usr/local/bin/nostalgia-ai
 
-# CLI AI Command Utility: Type 'ai <prompt>' in Terminal
+# CLI AI Command Utility
 cat << 'CLI_AI' > /usr/local/bin/ai
 #!/usr/bin/env python3
 import sys, psutil, os
@@ -222,7 +228,7 @@ CLI_AI
 
 chmod +x /usr/local/bin/ai
 
-# 5. First-Run Welcome & Setup Center (OOBE with Optional Password)
+# 5. First-Run Welcome Center (OOBE with Optional Password)
 cat << 'OOBE_APP' > /usr/local/bin/nostalgia-welcome
 #!/usr/bin/env python3
 import gi, os
@@ -281,7 +287,6 @@ class WelcomeWindow(Gtk.Window):
         pwd = self.pwd_entry.get_text().strip()
         if pwd:
             os.system(f"echo 'nostalgia:{pwd}' | sudo chpasswd")
-        # Remove welcome autostart so it only shows on first run
         os.system("rm -f ~/.config/autostart/welcome.desktop")
         self.destroy()
 
@@ -319,7 +324,7 @@ class AppStore(Gtk.Window):
         grid.set_column_spacing(20); grid.set_row_spacing(14)
         
         items = [
-            ("Nostalgia Local AI Agent", "State-of-the-art native intelligence", True),
+            ("Nostalgia Local AI Agent", "Native offline intelligent system", True),
             ("Safari Browser (WebKit)", "Ultra-fluid web engine", True),
             ("Acrylic Blur Compositor", "Real Dual-Kawase visual blur", True),
             ("Developer Toolchain (250+)", "C/C++, Python, Git, Networking", True),
@@ -509,6 +514,7 @@ user-session=xfce
 LEF
 
 # 12. User Account Initialization
+mkdir -p /etc/sudoers.d
 useradd -m -s /bin/bash -G sudo,audio,video nostalgia
 echo "nostalgia:live" | chpasswd
 echo "nostalgia ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/nostalgia
