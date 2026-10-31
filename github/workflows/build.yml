@@ -1,0 +1,28 @@
+name: Build Nostalgia OS 3.0 Quantum ISO
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Install Build Toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y debootstrap squashfs-tools xorriso grub-pc-bin grub-efi-amd64-bin mtools dosfstools python3-pil
+
+      - name: Run Build Pipeline
+        run: |
+          chmod +x build.sh
+          sudo ./build.sh
+
+      - name: Upload Quantum ISO Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: NostalgiaOS-3.0-x86_64
+          path: NostalgiaOS-3.0-x86_64.iso
+          retention-days: 7
